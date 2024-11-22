@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Uruchom testy jednokrotnie bez watch mode
+npm run test:run
+
+# Sformatuj zmienione pliki używając prettier
+prettier --write $(git diff --cached --name-only --diff-filter=ACMR "*.js" "*.jsx" "*.ts" "*.tsx" "*.css" "*.json" "*.md" | sed 's| |\\ |g')
+
+# Dodaj sformatowane pliki z powrotem do staging area
+git add -u
+
+# Zaktualizuj index
+git update-index --again
+
