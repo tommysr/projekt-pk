@@ -5,7 +5,7 @@
 npm run test:run
 
 # Sformatuj zmienione pliki używając prettier
-prettier --write $(git diff --cached --name-only --diff-filter=ACMR "*.js" "*.jsx" "*.ts" "*.tsx" "*.css" "*.json" "*.md" | sed 's| |\\ |g')
+npx prettier --write --ignore-unknown $(git diff --cached --name-only)
 
 # Dodaj sformatowane pliki z powrotem do staging area
 git add -u
