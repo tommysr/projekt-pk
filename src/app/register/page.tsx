@@ -21,6 +21,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('')
   const router = useRouter()
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
 
   const [usernameError, setUsernameError] = useState('')
@@ -67,6 +68,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setSuccess('')
 
     const isUsernameValid = validateUsername()
     const isEmailValid = validateEmail()
@@ -93,7 +95,11 @@ export default function RegisterPage() {
         throw new Error(data.error || 'Registration failed')
       }
 
-      router.push('/chat')
+      setSuccess('Registration successful. You can now log in.')
+
+      setTimeout(() => {
+        router.push('/login')
+      }, 3000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
@@ -102,71 +108,72 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Register</CardTitle>
-          <CardDescription>Create a new account to start chatting</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && <div className="text-red-500 text-sm">{error}</div>}
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="Enter your username"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                onBlur={validateUsername}
-                className={usernameError ? 'border-red-500' : ''}
-                required
-              />
-              {usernameError && <p className="text-red-500 text-sm">{usernameError}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                onBlur={validateEmail}
-                className={emailError ? 'border-red-500' : ''}
-                required
-              />
-              {emailError && <p className="text-red-500 text-sm">{emailError}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                onBlur={validatePassword}
-                className={passwordError ? 'border-red-500' : ''}
-                required
-              />
-              {passwordError && <p className="text-red-500 text-sm">{passwordError}</p>}
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Registering...' : 'Register'}
-            </Button>
-          </form>
-        </CardContent>
-        <CardFooter className="justify-center">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Already have an account?{' '}
-            <Link href="/login" className="text-blue-600 hover:underline dark:text-blue-400">
-              Login here
-            </Link>
-          </p>
-        </CardFooter>
-      </Card>
-    </div>
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Register</CardTitle>
+            <CardDescription>Create a new account to start chatting</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && <div className="text-red-500 text-sm">{error}</div>}
+              {success && <div className="text-green-500 text-sm">{success}</div>}
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                    id="username"
+                    type="text"
+                    placeholder="Enter your username"
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    onBlur={validateUsername}
+                    className={usernameError ? 'border-red-500' : ''}
+                    required
+                />
+                {usernameError && <p className="text-red-500 text-sm">{usernameError}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    onBlur={validateEmail}
+                    className={emailError ? 'border-red-500' : ''}
+                    required
+                />
+                {emailError && <p className="text-red-500 text-sm">{emailError}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                    id="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    onBlur={validatePassword}
+                    className={passwordError ? 'border-red-500' : ''}
+                    required
+                />
+                {passwordError && <p className="text-red-500 text-sm">{passwordError}</p>}
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Registering...' : 'Register'}
+              </Button>
+            </form>
+          </CardContent>
+          <CardFooter className="justify-center">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Already have an account?{' '}
+              <Link href="/login" className="text-blue-600 hover:underline dark:text-blue-400">
+                Login here
+              </Link>
+            </p>
+          </CardFooter>
+        </Card>
+      </div>
   )
 }
