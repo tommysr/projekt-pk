@@ -23,9 +23,59 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const [usernameError, setUsernameError] = useState('')
+  const [emailError, setEmailError] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+
+  const validateUsername = () => {
+    if (!username.trim()) {
+      setUsernameError('Username is required.')
+      return false
+    } else if (username.trim().length < 3) {
+      setUsernameError('Username must be at least 3 characters long.')
+      return false
+    }
+    setUsernameError('')
+    return true
+  }
+
+  const validateEmail = () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!email.trim()) {
+      setEmailError('Email is required.')
+      return false
+    } else if (!emailRegex.test(email.trim())) {
+      setEmailError('Please enter a valid email address.')
+      return false
+    }
+    setEmailError('')
+    return true
+  }
+
+  const validatePassword = () => {
+    if (!password) {
+      setPasswordError('Password is required.')
+      return false
+    } else if (password.length < 6) {
+      setPasswordError('Password must be at least 6 characters long.')
+      return false
+    }
+    setPasswordError('')
+    return true
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    const isUsernameValid = validateUsername()
+    const isEmailValid = validateEmail()
+    const isPasswordValid = validatePassword()
+
+    if (!isUsernameValid || !isEmailValid || !isPasswordValid) {
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -34,7 +84,7 @@ export default function RegisterPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({ username: username.trim(), email: email.trim(), password }),
       })
 
       const data = await response.json()
@@ -69,8 +119,11 @@ export default function RegisterPage() {
                 placeholder="Enter your username"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
+                onBlur={validateUsername}
+                className={usernameError ? 'border-red-500' : ''}
                 required
               />
+              {usernameError && <p className="text-red-500 text-sm">{usernameError}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -80,8 +133,11 @@ export default function RegisterPage() {
                 placeholder="Enter your email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
+                onBlur={validateEmail}
+                className={emailError ? 'border-red-500' : ''}
                 required
               />
+              {emailError && <p className="text-red-500 text-sm">{emailError}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
@@ -91,8 +147,11 @@ export default function RegisterPage() {
                 placeholder="Enter your password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
+                onBlur={validatePassword}
+                className={passwordError ? 'border-red-500' : ''}
                 required
               />
+              {passwordError && <p className="text-red-500 text-sm">{passwordError}</p>}
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Registering...' : 'Register'}
