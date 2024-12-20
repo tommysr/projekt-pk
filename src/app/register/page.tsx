@@ -14,6 +14,7 @@ import {
   CardContent,
   CardFooter,
 } from '@/components/ui/card'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function RegisterPage() {
   const [username, setUsername] = useState('')
@@ -27,6 +28,8 @@ export default function RegisterPage() {
   const [usernameError, setUsernameError] = useState('')
   const [emailError, setEmailError] = useState('')
   const [passwordError, setPasswordError] = useState('')
+
+  const { register } = useAuth()
 
   const validateUsername = () => {
     if (!username.trim()) {
@@ -81,21 +84,9 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username: username.trim(), email: email.trim(), password }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Registration failed')
-      }
-
+      await register(username.trim(), email.trim(), password)
       setSuccess('Registration successful. You can now log in.')
+      router.push('/login')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {

@@ -24,13 +24,50 @@ export default function LoginPage() {
   const router = useRouter()
   const { login } = useAuth()
 
+  // Add validation states
+  const [emailError, setEmailError] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+
+  const validateEmail = () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!email.trim()) {
+      setEmailError('Email is required.')
+      return false
+    } else if (!emailRegex.test(email.trim())) {
+      setEmailError('Please enter a valid email address.')
+      return false
+    }
+    setEmailError('')
+    return true
+  }
+
+  const validatePassword = () => {
+    if (!password) {
+      setPasswordError('Password is required.')
+      return false
+    } else if (password.length < 8) {
+      setPasswordError('Password must be at least 8 characters long.')
+      return false
+    }
+    setPasswordError('')
+    return true
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    const isEmailValid = validateEmail()
+    const isPasswordValid = validatePassword()
+
+    if (!isEmailValid || !isPasswordValid) {
+      return
+    }
+
     setLoading(true)
 
     try {
-      await login(email, password)
+      await login(email.trim(), password)
       router.push('/chat')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
@@ -57,8 +94,11 @@ export default function LoginPage() {
                 placeholder="Enter your email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
+                onBlur={validateEmail}
+                className={emailError ? 'border-red-500' : ''}
                 required
               />
+              {emailError && <p className="text-red-500 text-sm">{emailError}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
@@ -68,8 +108,11 @@ export default function LoginPage() {
                 placeholder="Enter your password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
+                onBlur={validatePassword}
+                className={passwordError ? 'border-red-500' : ''}
                 required
               />
+              {passwordError && <p className="text-red-500 text-sm">{passwordError}</p>}
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Logging in...' : 'Login'}
