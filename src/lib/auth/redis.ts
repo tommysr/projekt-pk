@@ -1,18 +1,16 @@
-import { createClient } from 'redis'
+import { createClient, RedisClientType } from 'redis'
 import { v4 as uuidv4 } from 'uuid'
 
-// Only create the client on the server side
-const getRedisClient = () => {
-  if (typeof window !== 'undefined') {
-    throw new Error('Redis client cannot be instantiated on the client side')
-  }
+let client: RedisClientType | null = null
 
-  const client = createClient({
-    url: process.env.REDIS_URL,
-  })
+const getRedisClient = (): RedisClientType => {
+  if (!client) {
+    client = createClient({
+      url: process.env.REDIS_URL,
+    })
 
-  // Connect to redis if not already connected
-  if (!client.isOpen) {
+    client.on('error', err => console.error('Redis Client Error', err))
+
     client.connect()
   }
 
@@ -20,7 +18,7 @@ const getRedisClient = () => {
 }
 
 export const sessions = {
-  create: async (userId: string) => {
+  create: async (userId: string): Promise<string> => {
     const client = getRedisClient()
     const sessionId = uuidv4()
     await client.set(`session:${sessionId}`, userId, {
@@ -29,12 +27,12 @@ export const sessions = {
     return sessionId
   },
 
-  verify: async (sessionId: string) => {
+  verify: async (sessionId: string): Promise<string | null> => {
     const client = getRedisClient()
     return await client.get(`session:${sessionId}`)
   },
 
-  destroy: async (sessionId: string) => {
+  destroy: async (sessionId: string): Promise<void> => {
     const client = getRedisClient()
     await client.del(`session:${sessionId}`)
   },

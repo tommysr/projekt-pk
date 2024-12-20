@@ -1,4 +1,4 @@
-import { prisma } from './prisma'
+import { prisma } from '../prisma'
 import bcrypt from 'bcryptjs'
 import { sessions } from './redis'
 
@@ -10,10 +10,41 @@ interface User {
 
 interface AuthResponse {
   user: User
+  sessionId: string
+}
+
+interface RegisterResponse {
+  user: User
 }
 
 export const auth = {
-  register: async (username: string, email: string, password: string): Promise<AuthResponse> => {
+  login: async (email: string, password: string): Promise<AuthResponse> => {
+    const user = await prisma.user.findUnique({ where: { email } })
+    if (!user) {
+      throw new Error('Invalid credentials')
+    }
+
+    const isValid = await bcrypt.compare(password, user.password)
+    if (!isValid) {
+      throw new Error('Invalid credentials')
+    }
+
+    const sessionId = await sessions.create(user.id)
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+      },
+      sessionId,
+    }
+  },
+
+  register: async (
+    username: string,
+    email: string,
+    password: string
+  ): Promise<RegisterResponse> => {
     const existingUser = await prisma.user.findFirst({
       where: {
         OR: [{ email }, { username }],
@@ -42,16 +73,15 @@ export const auth = {
     }
   },
 
-  logout: async () => {
-    const sessionId = localStorage.getItem('sessionId')
+  logout: async (sessionId: string): Promise<void> => {
     if (sessionId) {
       await sessions.destroy(sessionId)
-      localStorage.removeItem('sessionId')
-      localStorage.removeItem('user')
     }
   },
 
   getUser: async (sessionId: string): Promise<User | null> => {
+    if (!sessionId) return null
+
     const userId = await sessions.verify(sessionId)
     if (!userId) return null
 
@@ -68,8 +98,7 @@ export const auth = {
     }
   },
 
-  isAuthenticated: async (): Promise<boolean> => {
-    const sessionId = localStorage.getItem('sessionId')
+  isAuthenticated: async (sessionId: string): Promise<boolean> => {
     if (!sessionId) return false
 
     const userId = await sessions.verify(sessionId)
