@@ -1,8 +1,7 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
+#!/usr/bin/env bash
 
 # Uruchom testy jednokrotnie bez watch mode
-npm run test:run
+npm run test
 
 # Sformatuj zmienione pliki używając prettier
 npx prettier --write --ignore-unknown $(git diff --cached --name-only)
