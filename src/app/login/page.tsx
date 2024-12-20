@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,34 +15,18 @@ import {
   CardContent,
   CardFooter,
 } from '@/components/ui/card'
-import { useAuth } from '@/hooks/useAuth'
 
-export default function RegisterPage() {
-  const [username, setUsername] = useState('')
+export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const router = useRouter()
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
+  const { login } = useAuth()
 
-  const [usernameError, setUsernameError] = useState('')
+  // Add validation states
   const [emailError, setEmailError] = useState('')
   const [passwordError, setPasswordError] = useState('')
-
-  const { register } = useAuth()
-
-  const validateUsername = () => {
-    if (!username.trim()) {
-      setUsernameError('Username is required.')
-      return false
-    } else if (username.trim().length < 3) {
-      setUsernameError('Username must be at least 3 characters long.')
-      return false
-    }
-    setUsernameError('')
-    return true
-  }
 
   const validateEmail = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -71,24 +56,21 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setSuccess('')
 
-    const isUsernameValid = validateUsername()
     const isEmailValid = validateEmail()
     const isPasswordValid = validatePassword()
 
-    if (!isUsernameValid || !isEmailValid || !isPasswordValid) {
+    if (!isEmailValid || !isPasswordValid) {
       return
     }
 
     setLoading(true)
 
     try {
-      await register(username.trim(), email.trim(), password)
-      setSuccess('Registration successful. You can now log in.')
-      router.push('/login')
+      await login(email.trim(), password)
+      router.push('/chat')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed')
+      setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
       setLoading(false)
     }
@@ -98,27 +80,12 @@ export default function RegisterPage() {
     <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Register</CardTitle>
-          <CardDescription>Create a new account to start chatting</CardDescription>
+          <CardTitle>Login</CardTitle>
+          <CardDescription>Welcome back! Please login to your account</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && <div className="text-red-500 text-sm">{error}</div>}
-            {success && <div className="text-green-500 text-sm">{success}</div>}
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="Enter your username"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                onBlur={validateUsername}
-                className={usernameError ? 'border-red-500' : ''}
-                required
-              />
-              {usernameError && <p className="text-red-500 text-sm">{usernameError}</p>}
-            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -148,15 +115,15 @@ export default function RegisterPage() {
               {passwordError && <p className="text-red-500 text-sm">{passwordError}</p>}
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Registering...' : 'Register'}
+              {loading ? 'Logging in...' : 'Login'}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="justify-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Already have an account?{' '}
-            <Link href="/login" className="text-blue-600 hover:underline dark:text-blue-400">
-              Login here
+            Don&apos;t have an account?{' '}
+            <Link href="/register" className="text-blue-600 hover:underline dark:text-blue-400">
+              Register here
             </Link>
           </p>
         </CardFooter>
