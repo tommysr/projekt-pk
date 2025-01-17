@@ -4,19 +4,30 @@ import { cookies } from 'next/headers'
 
 export async function GET() {
   try {
-    const sessionId = (await cookies()).get('sessionId')?.value
+    const cookieStore = await cookies()
+    const sessionId = cookieStore.get('sessionId')?.value
 
     if (!sessionId) {
-      return NextResponse.json({ user: null }, { status: 200 })
+      return NextResponse.json({ error: 'No session found' }, { status: 401 })
     }
 
-    const user = await auth.getUser(sessionId)
+    console.log('Found session cookie:', {
+      encoded: sessionId.substring(0, 8) + '...',
+      decoded: decodeURIComponent(sessionId).substring(0, 8) + '...',
+    })
 
-    return NextResponse.json({ user }, { status: 200 })
+    // Decode the session ID
+    const decodedSessionId = decodeURIComponent(sessionId)
+    console.log('Verifying user session:', decodedSessionId.substring(0, 8) + '...')
+
+    const user = await auth.getUser(decodedSessionId)
+    if (!user) {
+      return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
+    }
+
+    return NextResponse.json({ user })
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to retrieve user' },
-      { status: 400 }
-    )
+    console.error('Error in user route:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

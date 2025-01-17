@@ -1,4 +1,8 @@
-import { useState, useEffect } from 'react'
+'use client'
+
+import useSWR, { mutate } from 'swr'
+import { useSocket } from './useSocket'
+import { useEffect } from 'react'
 
 type ChatParticipant = {
   id: string
@@ -26,32 +30,63 @@ type ChatWithParticipants = {
   joinedAt: string
   chat: Chat
 }
+
 export const useChats = () => {
-  const [chats, setChats] = useState<ChatWithParticipants[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const socket = useSocket()
+  const { data, error, isLoading, mutate } = useSWR<{ chats: ChatWithParticipants[] }>('/api/chats')
 
-  const fetchChats = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch('/api/chats')
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error)
-      }
-
-      setChats(data.chats)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch chats')
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // Listen for real-time chat updates
   useEffect(() => {
-    fetchChats()
-  }, [])
+    if (!socket) return
 
-  return { chats, loading, error, refetch: fetchChats }
+    const handleChatUpdate = (updatedChat: ChatWithParticipants) => {
+      mutate(
+        currentData => {
+          if (!currentData) return { chats: [updatedChat] }
+
+          const updatedChats = currentData.chats.map(chat =>
+            chat.chatId === updatedChat.chatId ? updatedChat : chat
+          )
+
+          return { chats: updatedChats }
+        },
+        { revalidate: false }
+      )
+    }
+
+    const handleNewChat = (newChat: ChatWithParticipants) => {
+      mutate(
+        currentData => ({
+          chats: currentData ? [newChat, ...currentData.chats] : [newChat],
+        }),
+        { revalidate: false }
+      )
+    }
+
+    const handleChatDelete = (chatId: string) => {
+      mutate(
+        currentData => ({
+          chats: currentData ? currentData.chats.filter(chat => chat.chatId !== chatId) : [],
+        }),
+        { revalidate: false }
+      )
+    }
+
+    socket.on('chat_update', handleChatUpdate)
+    socket.on('new_chat', handleNewChat)
+    socket.on('chat_delete', handleChatDelete)
+
+    return () => {
+      socket.off('chat_update', handleChatUpdate)
+      socket.off('new_chat', handleNewChat)
+      socket.off('chat_delete', handleChatDelete)
+    }
+  }, [socket, mutate])
+
+  return {
+    chats: data?.chats ?? [],
+    loading: isLoading,
+    error,
+    refetch: () => mutate(),
+  }
 }

@@ -2,19 +2,19 @@ import { prisma } from '../prisma'
 import bcrypt from 'bcryptjs'
 import { sessions } from './redis'
 
-interface User {
+interface AuthenticatedUser {
   id: string
   email: string
   username: string
 }
 
 interface AuthResponse {
-  user: User
+  user: AuthenticatedUser
   sessionId: string
 }
 
 interface RegisterResponse {
-  user: User
+  user: AuthenticatedUser
 }
 
 export const auth = {
@@ -36,7 +36,7 @@ export const auth = {
         email: user.email,
         username: user.username,
       },
-      sessionId,
+      sessionId: encodeURIComponent(sessionId),
     }
   },
 
@@ -79,10 +79,11 @@ export const auth = {
     }
   },
 
-  getUser: async (sessionId: string): Promise<User | null> => {
+  getUser: async (sessionId: string): Promise<AuthenticatedUser | null> => {
     if (!sessionId) return null
 
     const userId = await sessions.verify(sessionId)
+
     if (!userId) return null
 
     const user = await prisma.user.findUnique({

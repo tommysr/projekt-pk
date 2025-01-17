@@ -1,67 +1,103 @@
+'use client'
+
 import { User } from '@prisma/client/wasm'
-import { useState } from 'react'
+import useSWR, { mutate } from 'swr'
+import Cookies from 'js-cookie'
+
+const fetchWithCredentials = async (url: string, options: RequestInit = {}) => {
+  const response = await fetch(url, {
+    ...options,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(options.headers || {}),
+    },
+  })
+
+  const data = await response.json()
+  if (!response.ok) {
+    throw new Error(data.error || 'An error occurred')
+  }
+  return data
+}
 
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null)
+  const { data, error, isLoading } = useSWR<{ user: User | null }>(
+    '/api/auth/user',
+    fetchWithCredentials,
+    {
+      revalidateOnFocus: false,
+      shouldRetryOnError: false,
+    }
+  )
 
   const login = async (email: string, password: string) => {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    })
+    try {
+      const data = await fetchWithCredentials('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      })
 
-    const data = await response.json()
-
-    if (response.ok) {
-      setUser(data.user)
-    } else {
-      throw new Error(data.error)
+      // Update the cached user data
+      await mutate('/api/auth/user', { user: data.user }, false)
+      return data.user
+    } catch (error) {
+      throw error
     }
   }
 
   const register = async (username: string, email: string, password: string) => {
-    const response = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email, password }),
-    })
+    try {
+      const data = await fetchWithCredentials('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ username, email, password }),
+      })
 
-    const data = await response.json()
-
-    if (response.ok) {
-      setUser(data.user)
-    } else {
-      throw new Error(data.error)
+      // Update the cached user data
+      await mutate('/api/auth/user', { user: data.user }, false)
+      return data.user
+    } catch (error) {
+      throw error
     }
   }
 
   const logout = async () => {
-    const response = await fetch('/api/auth/logout', {
-      method: 'POST',
-    })
+    try {
+      await fetchWithCredentials('/api/auth/logout', {
+        method: 'POST',
+      })
 
-    if (response.ok) {
-      setUser(null)
-    } else {
-      throw new Error('Logout failed')
+      // Clear the session cookie
+      Cookies.remove('sessionId', { path: '/' })
+
+      // Clear the cached user data
+      await mutate('/api/auth/user', { user: null }, false)
+    } catch (error) {
+      throw error
     }
   }
 
   const getUser = async () => {
-    const response = await fetch('/api/auth/user', {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    })
-
-    const data = await response.json()
-
-    if (response.ok) {
-      setUser(data.user)
-    } else {
-      setUser(null)
+    try {
+      const data = await fetchWithCredentials('/api/auth/user', {
+        method: 'GET',
+      })
+      await mutate('/api/auth/user', { user: data.user }, false)
+      return data.user
+    } catch (error) {
+      await mutate('/api/auth/user', { user: null }, false)
+      return null
     }
   }
 
-  return { user, setUser, login, register, logout, getUser }
+  return {
+    user: data?.user ?? null,
+    loading: isLoading,
+    error,
+    login,
+    register,
+    logout,
+    getUser,
+  }
 }

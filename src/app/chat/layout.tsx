@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation'
 import { Menu, MessageSquare, Settings, LogOut } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuth } from '@/hooks/useAuth'
@@ -82,15 +81,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
         </header>
 
         {/* Chat messages */}
-        <ScrollArea className="flex-1 p-4">{children}</ScrollArea>
-
-        {/* Message input */}
-        <div className="p-4 border-t dark:border-gray-700">
-          <form className="flex space-x-2">
-            <Input className="flex-1" placeholder="Type a message..." aria-label="Type a message" />
-            <Button type="submit">Send</Button>
-          </form>
-        </div>
+        <main className="flex-1 overflow-hidden">{children}</main>
       </div>
     </div>
   )
