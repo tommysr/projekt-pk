@@ -25,25 +25,14 @@ export const sessions = {
       const sessionId = uuidv4()
       const key = `session:${sessionId}`
 
-      console.log('Creating new session:', {
-        key,
-        userId,
-        expiresIn: '7 days',
-      })
-
       await client.set(key, userId, {
         EX: 60 * 60 * 24 * 7, // 7 days
       })
 
-      // Verify the session was created
-      const storedUserId = await client.get(key)
-      console.log('Session created and verified:', {
-        key: key,
-        sessionId: sessionId.substring(0, 8) + '...',
-        userId,
-        storedUserId,
-        matches: storedUserId === userId,
-      })
+      // Only log session creation in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Session created:', sessionId.substring(0, 8) + '...')
+      }
 
       return sessionId
     } catch (error) {
@@ -54,7 +43,6 @@ export const sessions = {
 
   verify: async (sessionId: string): Promise<string | null> => {
     try {
-      console.log('Verifying session:', sessionId.substring(0, 8) + '...')
       const client = await getRedisClient()
       const key = `session:${sessionId}`
 
@@ -62,7 +50,6 @@ export const sessions = {
       const keys = await client.keys('session:*')
 
       if (keys.length === 0) {
-        console.log('No sessions found')
         return null
       }
 
@@ -72,31 +59,16 @@ export const sessions = {
           return { key: key.replace('session:', ''), userId }
         })
       )
-      console.log('Active sessions:', {
-        count: sessions.length,
-        sessions: sessions.map(s => ({
-          sessionId: s.key.substring(0, 8) + '...',
-          userId: s.userId,
-          matchesRequest: s.key === sessionId,
-        })),
-      })
 
-      const userId = await client.get(key)
-
-      if (!userId) {
-        console.log('No user found for session:', {
-          key,
+      // Only log session verification in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Session verification:', {
           sessionId: sessionId.substring(0, 8) + '...',
-          availableKeys: keys,
+          valid: sessions.some(s => s.key === sessionId),
         })
-        return null
       }
 
-      console.log('Session verified:', {
-        key,
-        sessionId: sessionId.substring(0, 8) + '...',
-        userId,
-      })
+      const userId = await client.get(key)
       return userId
     } catch (error) {
       console.error('Error verifying session:', error)
@@ -107,6 +79,10 @@ export const sessions = {
   destroy: async (sessionId: string): Promise<void> => {
     const client = await getRedisClient()
     await client.del(`session:${sessionId}`)
-    console.log('Destroyed session:', sessionId.substring(0, 8) + '...')
+
+    // Only log session destruction in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Session destroyed:', sessionId.substring(0, 8) + '...')
+    }
   },
 }

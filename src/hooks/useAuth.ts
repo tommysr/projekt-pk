@@ -28,7 +28,10 @@ export const useAuth = () => {
     fetchWithCredentials,
     {
       revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      revalidateIfStale: false,
       shouldRetryOnError: false,
+      dedupingInterval: 60000, // 1 minute
     }
   )
 
