@@ -10,6 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuth } from '@/hooks/useAuth'
 import { useChats } from '@/hooks/useChats'
+import { NewChatButton } from '@/components/NewChatButton'
 
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
   const { logout } = useAuth()
@@ -25,8 +26,9 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
       <div className="w-64 bg-gray-100 border-r dark:bg-gray-800 dark:border-gray-700 hidden md:flex md:flex-col">
-        <div className="p-4 border-b dark:border-gray-700">
+        <div className="p-4 border-b dark:border-gray-700 flex items-center justify-between">
           <h2 className="text-xl font-bold">Chats</h2>
+          <NewChatButton />
         </div>
         <ScrollArea className="flex-grow">
           <nav className="p-4 space-y-2">
