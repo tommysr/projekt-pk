@@ -14,29 +14,41 @@ jest.mock('@prisma/client', () => ({
 jest.mock('@/lib/auth/auth')
 const mockedAuth = jest.mocked(auth)
 
-// Add mocks at the top of the file
+// Mock next/headers
+jest.mock('next/headers', () => ({
+  cookies: jest.fn().mockReturnValue({
+    get: jest.fn().mockReturnValue(null),
+    set: jest.fn(),
+  }),
+}))
+
+// Mock NextResponse
 jest.mock('next/server', () => ({
   NextRequest: jest.requireActual('next/server').NextRequest,
   NextResponse: {
-    json: (data, init?: ResponseInit) => {
+    json: (data: any, init?: ResponseInit) => {
+      const response = new Response(JSON.stringify(data), init)
       const headers = new Headers(init?.headers)
-      const response = {
-        ...new Response(JSON.stringify(data), init),
+
+      return {
+        ...response,
         cookies: {
-          set: (name: string, value: string, options) => {
-            // Construct cookie string
-            let cookie = `${name}=${value}`
-            if (options.httpOnly) cookie += '; HttpOnly'
-            if (options.path) cookie += `; Path=${options.path}`
-            // Set the cookie header
-            headers.set('set-cookie', cookie)
+          set: (options: any) => {
+            const cookieValue = `${options.name}=${options.value}`
+            const cookieOptions: string[] = []
+            if (options.httpOnly) cookieOptions.push('HttpOnly')
+            if (options.path) cookieOptions.push(`Path=${options.path}`)
+            if (options.secure) cookieOptions.push('Secure')
+            if (options.sameSite) cookieOptions.push(`SameSite=${options.sameSite}`)
+
+            const fullCookie = [cookieValue, ...cookieOptions].join('; ')
+            headers.append('set-cookie', fullCookie)
           },
         },
+        headers,
         json: async () => data,
-        headers: headers,
         status: init?.status || 200,
       }
-      return response
     },
   },
 }))

@@ -4,27 +4,19 @@ import { cookies } from 'next/headers'
 
 export async function POST() {
   try {
-    const sessionId = (await cookies()).get('sessionId')?.value
+    const cookieStore = await cookies()
+    const sessionId = cookieStore.get('sessionId')?.value
 
-    if (sessionId) {
-      await auth.logout(sessionId)
+    if (!sessionId) {
+      return NextResponse.json({ error: 'No session found' }, { status: 401 })
     }
 
-    const response = NextResponse.json({ message: 'Logged out successfully' })
+    await auth.logout(sessionId)
+    cookieStore.delete('sessionId')
 
-    response.cookies.set('sessionId', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      expires: new Date(0), // Expire the cookie immediately
-    })
-
-    return response
+    return NextResponse.json({ success: true })
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Logout failed' },
-      { status: 400 }
-    )
+    console.error('Logout error:', error)
+    return NextResponse.json({ error: 'Logout failed' }, { status: 500 })
   }
 }

@@ -2,21 +2,25 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { sessions } from '@/lib/auth/redis'
+import { auth } from '@/lib/auth/auth'
 
 export async function GET() {
   try {
-    const sessionId = (await cookies()).get('sessionId')?.value
+    const cookieStore = await cookies()
+    const sessionId = cookieStore.get('sessionId')?.value
+
     if (!sessionId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userId = await sessions.verify(sessionId)
-    if (!userId) {
+    const user = await auth.getUser(sessionId)
+
+    if (!user) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
     }
 
     const chats = await prisma.chatParticipant.findMany({
-      where: { userId },
+      where: { userId: user.id },
       include: {
         chat: {
           include: {
@@ -34,8 +38,6 @@ export async function GET() {
         },
       },
     })
-
-    console.log(chats)
 
     return NextResponse.json({ chats })
   } catch (error) {

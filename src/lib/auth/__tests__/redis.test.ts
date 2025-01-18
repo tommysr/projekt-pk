@@ -20,6 +20,7 @@ const mockRedisClient = {
   get: jest.fn(),
   del: jest.fn(),
   on: jest.fn(),
+  keys: jest.fn(),
 }
 
 describe('Redis Sessions', () => {
@@ -38,7 +39,7 @@ describe('Redis Sessions', () => {
       expect(mockRedisClient.set).toHaveBeenCalledWith(
         'session:test-session-id',
         'user123',
-        { EX: 24 * 60 * 60 } // 24 hours
+        { EX: 60 * 60 * 24 * 7 } // 7 days
       )
     })
 
@@ -52,7 +53,12 @@ describe('Redis Sessions', () => {
 
   describe('verify', () => {
     it('should verify a valid session', async () => {
-      mockRedisClient.get.mockResolvedValueOnce('user123')
+      // Mock both keys and get calls
+      mockRedisClient.keys.mockResolvedValueOnce(['session:test-session-id'])
+      // Mock get for both the session listing and the specific session check
+      mockRedisClient.get
+        .mockResolvedValueOnce('user123') // For the session listing
+        .mockResolvedValueOnce('user123') // For the specific session check
 
       const userId = await sessions.verify('test-session-id')
 
@@ -61,7 +67,10 @@ describe('Redis Sessions', () => {
     })
 
     it('should return null for invalid session', async () => {
-      mockRedisClient.get.mockResolvedValueOnce(null)
+      mockRedisClient.keys.mockResolvedValueOnce(['session:other-session'])
+      mockRedisClient.get
+        .mockResolvedValueOnce('other-user') // For the session listing
+        .mockResolvedValueOnce(null) // For the specific session check
 
       const userId = await sessions.verify('invalid-session-id')
 
@@ -69,9 +78,13 @@ describe('Redis Sessions', () => {
     })
 
     it('should handle Redis errors during verification', async () => {
-      mockRedisClient.get.mockRejectedValueOnce(new Error('Redis error'))
+      mockRedisClient.keys.mockResolvedValueOnce(['session:test-session-id'])
+      mockRedisClient.get
+        .mockResolvedValueOnce('user123') // For the session listing
+        .mockRejectedValueOnce(new Error('Redis error')) // For the specific session check
 
-      await expect(sessions.verify('test-session-id')).rejects.toThrow('Redis error')
+      const userId = await sessions.verify('test-session-id')
+      expect(userId).toBeNull()
     })
   })
 

@@ -1,19 +1,36 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth/auth'
+import { cookies } from 'next/headers'
 
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json()
-    const authResponse = await auth.login(email, password)
 
-    const response = NextResponse.json({ user: authResponse.user })
+    const cookieStore = await cookies()
+    const sessionIdCookie = cookieStore.get('sessionId')?.value
 
-    response.cookies.set('sessionId', authResponse.sessionId, {
+    if (sessionIdCookie) {
+      return NextResponse.json({ error: 'Already logged in' }, { status: 400 })
+    }
+
+    const { user, sessionId } = await auth.login(email, password)
+
+    const response = NextResponse.json({ user })
+
+    // Log the session ID before encoding
+    console.log('Setting session cookie:', {
+      original: sessionId.substring(0, 8) + '...',
+      encoded: encodeURIComponent(sessionId).substring(0, 8) + '...',
+    })
+
+    response.cookies.set({
+      name: 'sessionId',
+      value: encodeURIComponent(sessionId),
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      path: '/', // Ensure cookie is sent on all routes
-      maxAge: 60 * 60 * 24, // 24 hours
+      path: '/',
+      maxAge: 60 * 60 * 24, // 1 day
     })
 
     return response
