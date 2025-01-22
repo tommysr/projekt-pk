@@ -1,9 +1,14 @@
 import { createServer } from 'http'
 import { parse } from 'url'
 import next from 'next'
-import { Server } from 'socket.io'
+import { Server, type Socket } from 'socket.io'
 import { prisma } from './src/lib/prisma'
 import { sessions } from './src/lib/auth/redis'
+
+// Declare global type at the top level
+declare global {
+  var _io: Server | undefined
+}
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = 'localhost'
@@ -33,6 +38,8 @@ app.prepare().then(() => {
       allowedHeaders: ['cookie', 'Cookie'],
     },
   })
+  
+  global._io = io
 
   io.use(async (socket, next) => {
     try {
@@ -117,6 +124,32 @@ app.prepare().then(() => {
       socket.disconnect()
       return
     }
+
+
+    socket.on('join_room', async (chatId: string) => {
+      try {
+        const participant = await prisma.chatParticipant.findUnique({
+          where: {
+            userId_chatId: {
+              userId: socket.data.userId,
+              chatId,
+            },
+          },
+        })
+  
+        if (!participant) {
+          console.log(
+            `User ${socket.data.userId} tried to join chat ${chatId} but is not a participant.`
+          )
+          return
+        }
+  
+        socket.join(chatId)
+        console.log(`Socket ${socket.id} joined chat ${chatId}`)
+      } catch (err) {
+        console.error('Error in join_room event:', err)
+      }
+    })
 
     socket.on('send_message', async (data: { chatId: string; content: string }, callback) => {
       try {

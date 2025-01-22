@@ -3,10 +3,17 @@
 import { useSocket } from '@/hooks/useSocket'
 import { useMessages } from '@/hooks/useMessages'
 import { useAuth } from '@/hooks/useAuth'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export function ChatContent({ chatId }: { chatId: string }) {
   const socket = useSocket()
+
+  useEffect(() => {
+    if (!socket || !chatId) return
+    socket.emit('join_room', chatId)
+  }, [socket, chatId])
+
+
   const { messages, loading: messagesLoading, sendMessage } = useMessages(chatId)
   const { user, loading: userLoading } = useAuth()
   const [newMessage, setNewMessage] = useState('')
