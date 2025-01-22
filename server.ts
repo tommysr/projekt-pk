@@ -101,6 +101,8 @@ app.prepare().then(() => {
       userId: socket.data.userId,
     })
 
+    socket.join(socket.data.userId)
+
     try {
       const userChats = await prisma.chatParticipant.findMany({
         where: { userId: socket.data.userId },
