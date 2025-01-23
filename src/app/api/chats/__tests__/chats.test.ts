@@ -34,8 +34,10 @@ jest.mock('@/lib/auth/auth', () => ({
 // Mock prisma with jest.fn() for each method
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    chatParticipant: {
+    chat: {
       findMany: jest.fn(() => Promise.resolve([])),
+    },
+    chatParticipant: {
       findUnique: jest.fn(() => Promise.resolve(null)),
     },
     message: {
@@ -94,9 +96,7 @@ describe('GET /api/chats', () => {
   it('should return chats for authenticated user', async () => {
     // Mock the user + data
     mockedAuth.getUser.mockResolvedValue(mockUser)
-    ;(mockedPrisma.chatParticipant.findMany as jest.Mock).mockImplementation(() =>
-      Promise.resolve(mockChats)
-    )
+    ;(mockedPrisma.chat.findMany as jest.Mock).mockImplementation(() => Promise.resolve(mockChats))
 
     const response = await getChats()
     expect(response.status).toBe(200)
@@ -104,18 +104,12 @@ describe('GET /api/chats', () => {
     // NextResponse doesn't have .json(), so we need to parse it
     const data = JSON.parse(await response.text())
     expect(data.chats).toEqual(mockChats)
-    expect(prisma.chatParticipant.findMany).toHaveBeenCalledWith({
-      where: { userId: mockUser.id },
+    expect(prisma.chat.findMany).toHaveBeenCalledWith({
+      where: { participants: { some: { userId: mockUser.id } } },
       include: {
-        chat: {
+        participants: {
           include: {
-            participants: {
-              include: {
-                user: {
-                  select: { id: true, username: true },
-                },
-              },
-            },
+            user: { select: { id: true, username: true } },
           },
         },
       },
@@ -133,7 +127,7 @@ describe('GET /api/chats', () => {
 
   it('should return 500 if prisma throws an error', async () => {
     mockedAuth.getUser.mockResolvedValue(mockUser)
-    ;(mockedPrisma.chatParticipant.findMany as jest.Mock).mockImplementation(() =>
+    ;(mockedPrisma.chat.findMany as jest.Mock).mockImplementation(() =>
       Promise.reject(new Error('DB error'))
     )
 
