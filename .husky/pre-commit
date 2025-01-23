@@ -4,7 +4,8 @@
 npm run test
 
 # Sformatuj zmienione pliki używając prettier
-npx prettier --write --ignore-unknown $(git diff --cached --name-only)
+# Dodaj 2>/dev/null aby zignorować błędy dla brakujących plików
+git diff --cached --name-only | xargs -r npx prettier --write --ignore-unknown 2>/dev/null || true
 
 # Dodaj sformatowane pliki z powrotem do staging area
 git add -u

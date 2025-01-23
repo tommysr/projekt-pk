@@ -38,7 +38,7 @@ app.prepare().then(() => {
       allowedHeaders: ['cookie', 'Cookie'],
     },
   })
-  
+
   global._io = io
 
   io.use(async (socket, next) => {
@@ -103,31 +103,6 @@ app.prepare().then(() => {
 
     socket.join(socket.data.userId)
 
-    try {
-      const userChats = await prisma.chatParticipant.findMany({
-        where: { userId: socket.data.userId },
-        select: { chatId: true },
-      })
-
-      userChats.forEach(chat => {
-        socket.join(chat.chatId)
-        console.log('User joined chat:', {
-          socketId: socket.id,
-          userId: socket.data.userId,
-          chatId: chat.chatId,
-        })
-      })
-    } catch (error) {
-      console.error('Error joining user chats:', {
-        socketId: socket.id,
-        userId: socket.data.userId,
-        error,
-      })
-      socket.disconnect()
-      return
-    }
-
-
     socket.on('join_room', async (chatId: string) => {
       try {
         const participant = await prisma.chatParticipant.findUnique({
@@ -138,16 +113,20 @@ app.prepare().then(() => {
             },
           },
         })
-  
+
         if (!participant) {
           console.log(
             `User ${socket.data.userId} tried to join chat ${chatId} but is not a participant.`
           )
           return
         }
-  
-        socket.join(chatId)
-        console.log(`Socket ${socket.id} joined chat ${chatId}`)
+
+        // Check if socket is already in the room to avoid double-joining
+        const rooms = socket.rooms
+        if (!rooms.has(chatId)) {
+          socket.join(chatId)
+          console.log(`Socket ${socket.id} joined chat ${chatId}`)
+        }
       } catch (err) {
         console.error('Error in join_room event:', err)
       }

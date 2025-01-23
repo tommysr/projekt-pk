@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSocket } from './useSocket'
+import { useSocketContext } from '@/components/providers/SocketProvider'
+import useSWR from 'swr'
 
 type Message = {
   id: string
@@ -15,38 +16,11 @@ type Message = {
   }
 }
 
-// Cache messages per chat
-const messagesCache: Record<string, Message[]> = {}
-
-export const useMessages = (chatId: string) => {
-  const socket = useSocket()
-  const [messages, setMessages] = useState<Message[]>(messagesCache[chatId] || [])
-  const [loading, setLoading] = useState(!messagesCache[chatId])
-  const [error, setError] = useState<Error | null>(null)
-
-  // Initial fetch from API only if not in cache
-  useEffect(() => {
-    if (!chatId) return
-    if (messagesCache[chatId]) return
-
-    const fetchInitialMessages = async () => {
-      try {
-        const response = await fetch(`/api/chats/${chatId}/messages`)
-        if (!response.ok) {
-          throw new Error('Failed to fetch messages')
-        }
-        const data = await response.json()
-        messagesCache[chatId] = data.messages
-        setMessages(data.messages)
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to fetch messages'))
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchInitialMessages()
-  }, [chatId])
+export function useMessages(chatId: string) {
+  const { socket } = useSocketContext()
+  const { data, error, isLoading, mutate } = useSWR<{ messages: Message[] }>(
+    chatId ? `/api/chats/${chatId}/messages` : null
+  )
 
   // Socket listeners for real-time updates
   useEffect(() => {
@@ -54,30 +28,33 @@ export const useMessages = (chatId: string) => {
 
     const handleNewMessage = (message: Message) => {
       if (message.chatId === chatId) {
-        setMessages(prev => {
-          const updated = [...prev, message]
-          messagesCache[chatId] = updated
-          return updated
-        })
+        mutate(currentData => {
+          if (!currentData) return { messages: [message] }
+          return { messages: [...currentData.messages, message] }
+        }, false)
       }
     }
 
     const handleMessageUpdate = (updatedMessage: Message) => {
       if (updatedMessage.chatId === chatId) {
-        setMessages(prev => {
-          const updated = prev.map(msg => (msg.id === updatedMessage.id ? updatedMessage : msg))
-          messagesCache[chatId] = updated
-          return updated
-        })
+        mutate(currentData => {
+          if (!currentData) return { messages: [updatedMessage] }
+          return {
+            messages: currentData.messages.map(msg =>
+              msg.id === updatedMessage.id ? updatedMessage : msg
+            ),
+          }
+        }, false)
       }
     }
 
     const handleMessageDelete = (messageId: string) => {
-      setMessages(prev => {
-        const updated = prev.filter(msg => msg.id !== messageId)
-        messagesCache[chatId] = updated
-        return updated
-      })
+      mutate(currentData => {
+        if (!currentData) return { messages: [] }
+        return {
+          messages: currentData.messages.filter(msg => msg.id !== messageId),
+        }
+      }, false)
     }
 
     socket.on('new_message', handleNewMessage)
@@ -89,7 +66,7 @@ export const useMessages = (chatId: string) => {
       socket.off('message_update', handleMessageUpdate)
       socket.off('message_delete', handleMessageDelete)
     }
-  }, [socket, chatId])
+  }, [socket, chatId, mutate])
 
   const sendMessage = async (content: string) => {
     if (!socket) throw new Error('Socket not connected')
@@ -105,30 +82,11 @@ export const useMessages = (chatId: string) => {
     })
   }
 
-  const refetch = async () => {
-    if (!chatId) return
-
-    setLoading(true)
-    try {
-      const response = await fetch(`/api/chats/${chatId}/messages`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch messages')
-      }
-      const data = await response.json()
-      messagesCache[chatId] = data.messages
-      setMessages(data.messages)
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to fetch messages'))
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return {
-    messages,
-    loading,
+    messages: data?.messages || [],
+    loading: isLoading,
     error,
     sendMessage,
-    refetch,
+    refetch: () => mutate(),
   }
 }

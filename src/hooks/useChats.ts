@@ -1,7 +1,7 @@
 'use client'
 
 import useSWR, { mutate } from 'swr'
-import { useSocket } from './useSocket'
+import { useSocketContext } from '@/components/providers/SocketProvider'
 import { useEffect } from 'react'
 
 type ChatParticipant = {
@@ -31,8 +31,8 @@ type ChatWithParticipants = {
   chat: Chat
 }
 
-export const useChats = () => {
-  const socket = useSocket()
+export function useChats() {
+  const { socket } = useSocketContext()
   const { data, error, isLoading, mutate } = useSWR<{ chats: ChatWithParticipants[] }>('/api/chats')
 
   // Listen for real-time chat updates
@@ -40,26 +40,31 @@ export const useChats = () => {
     if (!socket) return
 
     const handleChatUpdate = (updatedChat: ChatWithParticipants) => {
-      mutate(currentData => {
-        if (!currentData) return { chats: [updatedChat] }
-        const updatedChats = currentData.chats.map(chat =>
-          chat.chatId === updatedChat.chatId ? updatedChat : chat
-        )
-        return { chats: updatedChats }
-      }, { revalidate: false })
+      mutate(
+        currentData => {
+          if (!currentData) return { chats: [updatedChat] }
+          const updatedChats = currentData.chats.map(chat =>
+            chat.chatId === updatedChat.chatId ? updatedChat : chat
+          )
+          return { chats: updatedChats }
+        },
+        { revalidate: false }
+      )
     }
 
     const handleNewChat = (newChat: Chat) => {
-      mutate(currentData => {
-        if (!currentData) return { chats: [newChat] }
-        const exists = currentData.chats.some(c => c.id === newChat.id)
-        if (exists) return currentData
-    
-        return {
-          chats: [...currentData.chats, newChat],
-        }
-        
-      }, { revalidate: false })
+      mutate(
+        currentData => {
+          if (!currentData) return { chats: [newChat] }
+          const exists = currentData.chats.some(c => c.id === newChat.id)
+          if (exists) return currentData
+
+          return {
+            chats: [...currentData.chats, newChat],
+          }
+        },
+        { revalidate: false }
+      )
     }
 
     const handleChatDelete = (chatId: string) => {
