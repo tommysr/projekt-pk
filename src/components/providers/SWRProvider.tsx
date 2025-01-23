@@ -2,25 +2,23 @@
 
 import { SWRConfig } from 'swr'
 
-// Global fetcher function
-const fetcher = async (url: string) => {
-  const res = await fetch(url, {
-    method: 'GET',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-  })
+interface FetcherError extends Error {
+  status?: number;
+}
 
+interface FetcherResponse {
+  data: unknown;
+  error?: string;
+}
+
+// Global fetcher function
+const fetcher = async (url: string): Promise<FetcherResponse> => {
+  const res = await fetch(url)
   if (!res.ok) {
-    const error = new Error('An error occurred while fetching the data.')
-    const data = await res.json()
-    ;(error as any).info = data
-    ;(error as any).status = res.status
+    const error = new Error('An error occurred while fetching the data.') as FetcherError
+    error.status = res.status
     throw error
   }
-
   return res.json()
 }
 

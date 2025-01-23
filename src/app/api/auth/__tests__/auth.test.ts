@@ -22,33 +22,22 @@ jest.mock('next/headers', () => ({
   }),
 }))
 
-// Mock NextResponse
+// Replace the any types with proper types
+interface ResponseInit {
+  status?: number;
+  headers?: HeadersInit;
+}
+
+// Update the mock implementations
 jest.mock('next/server', () => ({
   NextRequest: jest.requireActual('next/server').NextRequest,
   NextResponse: {
-    json: (data: any, init?: ResponseInit) => {
+    json: (data: unknown, init?: ResponseInit) => {
       const response = new Response(JSON.stringify(data), init)
-      const headers = new Headers(init?.headers)
-
-      return {
-        ...response,
-        cookies: {
-          set: (options: any) => {
-            const cookieValue = `${options.name}=${options.value}`
-            const cookieOptions: string[] = []
-            if (options.httpOnly) cookieOptions.push('HttpOnly')
-            if (options.path) cookieOptions.push(`Path=${options.path}`)
-            if (options.secure) cookieOptions.push('Secure')
-            if (options.sameSite) cookieOptions.push(`SameSite=${options.sameSite}`)
-
-            const fullCookie = [cookieValue, ...cookieOptions].join('; ')
-            headers.append('set-cookie', fullCookie)
-          },
-        },
-        headers,
-        json: async () => data,
-        status: init?.status || 200,
-      }
+      Object.defineProperty(response, 'json', {
+        value: async () => data,
+      })
+      return response
     },
   },
 }))

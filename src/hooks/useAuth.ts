@@ -23,7 +23,7 @@ const fetchWithCredentials = async (url: string, options: RequestInit = {}) => {
 }
 
 export const useAuth = () => {
-  const { data, error, isLoading } = useSWR<{ user: User | null }>(
+  const { data, isLoading } = useSWR<{ user: User | null }>(
     '/api/auth/user',
     fetchWithCredentials,
     {
@@ -89,6 +89,7 @@ export const useAuth = () => {
       await mutate('/api/auth/user', { user: data.user }, false)
       return data.user
     } catch (error) {
+      console.error('Error fetching user:', error)
       await mutate('/api/auth/user', { user: null }, false)
       return null
     }
@@ -97,7 +98,7 @@ export const useAuth = () => {
   return {
     user: data?.user ?? null,
     loading: isLoading,
-    error,
+    error: undefined,
     login,
     register,
     logout,

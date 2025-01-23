@@ -3,14 +3,41 @@
 import { useSocket } from '@/hooks/useSocket'
 import { useMessages } from '@/hooks/useMessages'
 import { useAuth } from '@/hooks/useAuth'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 export function ChatContent({ chatId }: { chatId: string }) {
   const socket = useSocket()
-  const { messages, loading: messagesLoading, sendMessage } = useMessages(chatId)
+  const { messages, loading, loadingMore, hasMore, loadMore, sendMessage } = useMessages(chatId)
   const { user, loading: userLoading } = useAuth()
   const [newMessage, setNewMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const observerRef = useRef<IntersectionObserver | null>(null)
+  const loadTriggerRef = useRef<HTMLDivElement>(null)
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    if (loading) return
+
+    observerRef.current = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMore()
+        }
+      },
+      { threshold: 0.5 }
+    )
+
+    if (loadTriggerRef.current) {
+      observerRef.current.observe(loadTriggerRef.current)
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect()
+      }
+    }
+  }, [loading, hasMore, loadingMore, loadMore])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,7 +54,7 @@ export function ChatContent({ chatId }: { chatId: string }) {
     }
   }
 
-  if (userLoading || messagesLoading) {
+  if (userLoading || loading) {
     return <div>Loading...</div>
   }
 
@@ -43,6 +70,17 @@ export function ChatContent({ chatId }: { chatId: string }) {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Load more trigger */}
+        {hasMore && (
+          <div ref={loadTriggerRef} className="text-center py-2">
+            {loadingMore ? (
+              <div className="animate-spin">⌛</div>
+            ) : (
+              <div className="text-gray-500">Scroll for more messages</div>
+            )}
+          </div>
+        )}
+        
         {messages.map(message => (
           <div
             key={message.id}
@@ -58,6 +96,8 @@ export function ChatContent({ chatId }: { chatId: string }) {
             </div>
           </div>
         ))}
+        
+        <div ref={messagesEndRef} />
       </div>
 
       <form onSubmit={handleSubmit} className="border-t p-4">

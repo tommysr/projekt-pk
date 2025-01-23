@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
-import { sessions } from '@/lib/auth/redis'
 import { auth } from '@/lib/auth/auth'
 
 export async function GET() {

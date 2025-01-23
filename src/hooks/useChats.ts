@@ -1,6 +1,6 @@
 'use client'
 
-import useSWR, { mutate } from 'swr'
+import useSWR from 'swr'
 import { useSocket } from './useSocket'
 import { useEffect } from 'react'
 

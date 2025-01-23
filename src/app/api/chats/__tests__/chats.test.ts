@@ -1,4 +1,19 @@
-import { NextResponse } from 'next/server'
+// Remove the NextResponse import since it's not directly used
+// import { NextResponse } from 'next/server'
+
+// Add proper type for the response data
+interface ChatResponse {
+  chats: Array<{
+    id: string;
+    name: string;
+    participants: Array<{
+      user: {
+        id: string;
+        username: string;
+      };
+    }>;
+  }>;
+}
 
 // Import the route handlers directly
 import { GET as getChats } from '@/app/api/chats/route'
@@ -7,7 +22,7 @@ import { GET as getChatMessages } from '@/app/api/chats/[chatId]/messages/route'
 // Mock NextResponse
 jest.mock('next/server', () => ({
   NextResponse: {
-    json: (data: any, init?: ResponseInit) => {
+    json: (data: ChatResponse, init?: ResponseInit) => {
       const response = new Response(JSON.stringify(data), init)
       Object.defineProperty(response, 'json', {
         value: async () => data,
