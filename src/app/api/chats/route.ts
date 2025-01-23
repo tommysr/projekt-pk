@@ -19,25 +19,17 @@ export async function GET() {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
     }
 
-    const chats = await prisma.chatParticipant.findMany({
-      where: { userId: user.id },
-      include: {
-        chat: {
+    const chats = await prisma.chat.findMany({
+      where: { participants: { some: { userId: user.id } } },
+      include: { 
+        participants: {
           include: {
-            participants: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    username: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+            user: { select: { id: true, username: true } }
+          }
+        }
+      }
     })
+
 
     return NextResponse.json({ chats })
   } catch (error) {

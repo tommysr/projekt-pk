@@ -40,27 +40,26 @@ export const useChats = () => {
     if (!socket) return
 
     const handleChatUpdate = (updatedChat: ChatWithParticipants) => {
-      mutate(
-        currentData => {
-          if (!currentData) return { chats: [updatedChat] }
-
-          const updatedChats = currentData.chats.map(chat =>
-            chat.chatId === updatedChat.chatId ? updatedChat : chat
-          )
-
-          return { chats: updatedChats }
-        },
-        { revalidate: false }
-      )
+      mutate(currentData => {
+        if (!currentData) return { chats: [updatedChat] }
+        const updatedChats = currentData.chats.map(chat =>
+          chat.chatId === updatedChat.chatId ? updatedChat : chat
+        )
+        return { chats: updatedChats }
+      }, { revalidate: false })
     }
 
-    const handleNewChat = (newChat: ChatWithParticipants) => {
-      mutate(
-        currentData => ({
-          chats: currentData ? [newChat, ...currentData.chats] : [newChat],
-        }),
-        { revalidate: false }
-      )
+    const handleNewChat = (newChat: Chat) => {
+      mutate(currentData => {
+        if (!currentData) return { chats: [newChat] }
+        const exists = currentData.chats.some(c => c.id === newChat.id)
+        if (exists) return currentData
+    
+        return {
+          chats: [...currentData.chats, newChat],
+        }
+        
+      }, { revalidate: false })
     }
 
     const handleChatDelete = (chatId: string) => {

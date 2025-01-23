@@ -52,6 +52,17 @@ export async function POST(request: Request) {
       return newChat
     })
 
+    const io = global._io
+    if (io) {
+      const allUserIds = chat.participants.map(p => p.userId) 
+      console.log('DEBUG: allUserIds =', allUserIds)
+      allUserIds.forEach(uid => {
+        io.to(uid).emit('new_chat', chat)
+      })
+    } else {
+      console.warn('Socket IO is not available in global._io')
+    }
+
     return NextResponse.json({ chat })
   } catch (error) {
     console.error('Error creating chat:', error)

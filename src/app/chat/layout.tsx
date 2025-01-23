@@ -40,16 +40,16 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
               chats.map(chat => (
                 <Link
                   key={chat.id}
-                  href={`/chat/${chat.chatId}`}
+                  href={`/chat/${chat.id}`}
                   className="flex items-center space-x-3 hover:bg-gray-200 dark:hover:bg-gray-700 p-2 rounded-lg"
                 >
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={`/avatars/${chat.chat.participants[0].user.username}.png`} />
+                    <AvatarImage src={`/avatars/${chat.participants[0].user.username}.png`} />
                     <AvatarFallback>
-                      {chat.chat.name?.[0] || chat.chat.participants[0].user.username[0]}
+                      {chat.name?.[0] || chat.participants[0].user.username[0]}
                     </AvatarFallback>
                   </Avatar>
-                  <span>{chat.chat.name || chat.chat.participants[0].user.username}</span>
+                  <span>{chat.name || chat.participants[0].user.username}</span>
                 </Link>
               ))
             )}
