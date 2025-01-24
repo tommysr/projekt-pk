@@ -27,16 +27,37 @@ export const useMessages = (chatId: string) => {
   const { socket } = useSocketContext()
   const seenMessageIds = useRef(new Set<string>())
   const [messages, setMessages] = useState<Message[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<Error | null>(null)
   const [hasMore, setHasMore] = useState(true)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const loadingRef = useRef(false)
 
-  // Clear seen messages when chat changes
+  // Clear all state when chat changes
   useEffect(() => {
     seenMessageIds.current.clear()
     setMessages([])
+    setError(null)
+    setHasMore(true)
+    setNextCursor(null)
+
+    if (loadingRef.current) return
+
+    const loadInitialMessages = async () => {
+      if (!chatId) return
+      loadingRef.current = true
+      setLoading(true)
+
+      try {
+        await loadMessages()
+      } finally {
+        loadingRef.current = false
+        setLoading(false)
+      }
+    }
+
+    loadInitialMessages()
   }, [chatId])
 
   const loadMessages = useCallback(
@@ -44,8 +65,7 @@ export const useMessages = (chatId: string) => {
       if (!chatId) return
 
       const isInitialLoad = !cursor
-      if (isInitialLoad) setLoading(true)
-      else setLoadingMore(true)
+      if (!isInitialLoad) setLoadingMore(true)
 
       try {
         const params = new URLSearchParams()
@@ -86,8 +106,7 @@ export const useMessages = (chatId: string) => {
       } catch (err) {
         setError(err instanceof Error ? err : new Error('Failed to fetch messages'))
       } finally {
-        if (isInitialLoad) setLoading(false)
-        else setLoadingMore(false)
+        if (!isInitialLoad) setLoadingMore(false)
       }
     },
     [chatId]
@@ -114,11 +133,6 @@ export const useMessages = (chatId: string) => {
       socket.off('new_message', handleNewMessage)
     }
   }, [socket])
-
-  // Initial load
-  useEffect(() => {
-    loadMessages()
-  }, [chatId, loadMessages])
 
   const sendMessage = async (content: string) => {
     if (!socket) throw new Error('Socket not connected')
