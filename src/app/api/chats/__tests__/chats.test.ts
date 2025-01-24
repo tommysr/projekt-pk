@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { describe, expect, it, jest } from '@jest/globals'
 
 // Import the route handlers directly
 import { GET as getChats } from '@/app/api/chats/route'
@@ -42,6 +43,7 @@ jest.mock('@/lib/prisma', () => ({
     },
     message: {
       findMany: jest.fn(() => Promise.resolve([])),
+      findFirst: jest.fn(() => Promise.resolve(null)),
     },
   },
 }))
@@ -80,7 +82,7 @@ const mockMessages = [
     content: 'Hello world',
     chatId: 'chat1',
     userId: 'user1',
-    createdAt: new Date().toISOString(),
+    createdAt: new Date('2024-01-24T18:52:06.097Z'),
     user: {
       id: 'user1',
       username: 'testuser',
@@ -139,7 +141,11 @@ describe('GET /api/chats', () => {
 })
 
 describe('GET /api/chats/[chatId]/messages', () => {
-  const mockRequest = new Request('http://localhost:3000')
+  const mockRequest = new Request('http://localhost:3000/api/chats/chat1/messages') as NextRequest
+  Object.defineProperty(mockRequest, 'nextUrl', {
+    get: () => new URL('http://localhost:3000/api/chats/chat1/messages'),
+  })
+
   const mockContext = {
     params: Promise.resolve({ chatId: 'chat1' }),
   }
@@ -159,11 +165,72 @@ describe('GET /api/chats/[chatId]/messages', () => {
     ;(mockedPrisma.message.findMany as jest.Mock).mockImplementation(() =>
       Promise.resolve(mockMessages)
     )
+    ;(mockedPrisma.message.findFirst as jest.Mock).mockImplementation(
+      () => Promise.resolve(null) // No more messages after this page
+    )
 
     const response = await getChatMessages(mockRequest, mockContext)
     expect(response.status).toBe(200)
     const data = JSON.parse(await response.text())
-    expect(data.messages).toEqual(mockMessages)
+
+    // Convert dates in the response for comparison
+    const messagesWithParsedDates = data.messages.map(msg => ({
+      ...msg,
+      createdAt: new Date(msg.createdAt),
+    }))
+
+    expect(messagesWithParsedDates).toEqual(mockMessages)
+    expect(data.hasMore).toBe(false)
+  })
+
+  it('should handle pagination correctly', async () => {
+    mockedAuth.getUser.mockResolvedValue(mockUser)
+    ;(mockedPrisma.chatParticipant.findUnique as jest.Mock).mockImplementation(() =>
+      Promise.resolve({
+        userId: 'user1',
+        chatId: 'chat1',
+      })
+    )
+
+    const firstPageMessages = [
+      {
+        id: 'msg1',
+        content: 'Hello world',
+        chatId: 'chat1',
+        userId: 'user1',
+        createdAt: new Date('2024-01-24T18:52:06.097Z'),
+        user: {
+          id: 'user1',
+          username: 'testuser',
+        },
+      },
+    ]
+
+    const hasMoreMessage = {
+      id: 'msg2',
+      createdAt: new Date('2024-01-24T18:37:00.238Z'),
+    }
+
+    ;(mockedPrisma.message.findMany as jest.Mock).mockImplementation(() =>
+      Promise.resolve(firstPageMessages)
+    )
+    ;(mockedPrisma.message.findFirst as jest.Mock).mockImplementation(() =>
+      Promise.resolve(hasMoreMessage)
+    )
+
+    const response = await getChatMessages(mockRequest, mockContext)
+    expect(response.status).toBe(200)
+    const data = JSON.parse(await response.text())
+
+    // Convert dates in the response for comparison
+    const messagesWithParsedDates = data.messages.map(msg => ({
+      ...msg,
+      createdAt: new Date(msg.createdAt),
+    }))
+
+    expect(messagesWithParsedDates).toEqual(firstPageMessages)
+    expect(data.hasMore).toBe(true)
+    expect(data.nextCursor).toBe(firstPageMessages[0].createdAt.toISOString())
   })
 
   it('should return 403 if user not in chat', async () => {

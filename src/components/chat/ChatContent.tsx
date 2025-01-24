@@ -1,31 +1,99 @@
 'use client'
 
+import { useState, useEffect, useRef } from 'react'
 import { useSocketContext } from '@/components/providers/SocketProvider'
 import { useMessages } from '@/hooks/useMessages'
 import { useAuth } from '@/hooks/useAuth'
-import { useState, useEffect } from 'react'
 import { Loading } from '@/components/ui/loading'
 
 export function ChatContent({ chatId }: { chatId: string }) {
   const { socket } = useSocketContext()
+  const { messages, loading, loadingMore, hasMore, loadMore, sendMessage } = useMessages(chatId)
+  const { user, loading: userLoading } = useAuth()
 
-  if (!chatId) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <p className="text-gray-500">Select a chat to start messaging</p>
-      </div>
-    )
-  }
+  const [newMessage, setNewMessage] = useState('')
+  const [isSending, setIsSending] = useState(false)
+
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
+
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
+
+  const chatContainerRef = useRef<HTMLDivElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const loadTriggerRef = useRef<HTMLDivElement>(null)
+  const observerRef = useRef<IntersectionObserver | null>(null)
 
   useEffect(() => {
     if (!socket || !chatId) return
     socket.emit('join_room', chatId)
   }, [socket, chatId])
 
-  const { messages, loading: messagesLoading, sendMessage } = useMessages(chatId)
-  const { user, loading: userLoading } = useAuth()
-  const [newMessage, setNewMessage] = useState('')
-  const [isSending, setIsSending] = useState(false)
+  useEffect(() => {
+    if (!loading && !initialLoadComplete && messages.length > 0) {
+      const container = chatContainerRef.current
+      if (container) {
+        container.scrollTop = container.scrollHeight
+      }
+      setInitialLoadComplete(true)
+    }
+  }, [loading, initialLoadComplete, messages])
+
+  useEffect(() => {
+    if (!initialLoadComplete) return // Wait until we've scrolled to bottom
+    if (observerRef.current) {
+      observerRef.current.disconnect()
+    }
+
+    const container = chatContainerRef.current
+    if (!container || !hasMore) return
+
+    observerRef.current = new IntersectionObserver(
+      async ([entry]) => {
+        if (entry.isIntersecting && !loadingMore && hasMore) {
+          const oldScrollHeight = container.scrollHeight
+          const oldScrollTop = container.scrollTop
+
+          await loadMore() // fetch older messages
+
+          requestAnimationFrame(() => {
+            const newScrollHeight = container.scrollHeight
+            container.scrollTop = newScrollHeight - oldScrollHeight + oldScrollTop
+          })
+        }
+      },
+      { threshold: 0.1 } // or 0.5, etc.
+    )
+
+    if (loadTriggerRef.current) {
+      observerRef.current.observe(loadTriggerRef.current)
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect()
+      }
+    }
+  }, [initialLoadComplete, hasMore, loadingMore, loadMore])
+
+  useEffect(() => {
+    if (shouldAutoScroll && !loadingMore) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
+    }
+  }, [messages, shouldAutoScroll, loadingMore])
+
+  useEffect(() => {
+    const container = chatContainerRef.current
+    if (!container) return
+
+    const handleScroll = () => {
+      const { scrollHeight, scrollTop, clientHeight } = container
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100
+      setShouldAutoScroll(isNearBottom)
+    }
+
+    container.addEventListener('scroll', handleScroll)
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,6 +103,8 @@ export function ChatContent({ chatId }: { chatId: string }) {
       setIsSending(true)
       await sendMessage(newMessage.trim())
       setNewMessage('')
+      // Force scroll to bottom when we send our own message
+      setShouldAutoScroll(true)
     } catch (error) {
       console.error('Failed to send message:', error)
     } finally {
@@ -42,7 +112,7 @@ export function ChatContent({ chatId }: { chatId: string }) {
     }
   }
 
-  if (userLoading || messagesLoading) {
+  if (userLoading || loading) {
     return <Loading message="Loading messages..." />
   }
 
@@ -52,7 +122,18 @@ export function ChatContent({ chatId }: { chatId: string }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Top sentinel */}
+        {hasMore && (
+          <div ref={loadTriggerRef} className="text-center py-2">
+            {loadingMore ? (
+              <div className="animate-spin">⌛</div>
+            ) : (
+              <div className="text-gray-500">Scroll up for older messages</div>
+            )}
+          </div>
+        )}
+
         {messages.map(message => (
           <div
             key={message.id}
@@ -65,9 +146,14 @@ export function ChatContent({ chatId }: { chatId: string }) {
             >
               <p className="text-sm font-medium">{message.user.username}</p>
               <p>{message.content}</p>
+              <p className="text-xs opacity-75 mt-1">
+                {new Date(message.createdAt).toLocaleTimeString()}
+              </p>
             </div>
           </div>
         ))}
+
+        <div ref={messagesEndRef} />
       </div>
 
       <form onSubmit={handleSubmit} className="border-t p-4">

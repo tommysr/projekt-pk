@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSocketContext } from '@/components/providers/SocketProvider'
 import useSWR from 'swr'
 
@@ -12,81 +12,146 @@ type Message = {
   createdAt: string
   user: {
     id: string
-    username: true
+    username: string
   }
 }
 
-export function useMessages(chatId: string) {
+const messagesCache: {
+  [key: string]: {
+    messages: Message[]
+    nextCursor: string | null
+    hasMore: boolean
+  }
+} = {}
+export const useMessages = (chatId: string) => {
   const { socket } = useSocketContext()
-  const { data, error, isLoading, mutate } = useSWR<{ messages: Message[] }>(
-    chatId ? `/api/chats/${chatId}/messages` : null
+  const seenMessageIds = useRef(new Set<string>())
+  const [messages, setMessages] = useState<Message[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+  const [hasMore, setHasMore] = useState(true)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+
+  // Clear seen messages when chat changes
+  useEffect(() => {
+    seenMessageIds.current.clear()
+    setMessages([])
+  }, [chatId])
+
+  const loadMessages = useCallback(
+    async (cursor?: string) => {
+      if (!chatId) return
+
+      const isInitialLoad = !cursor
+      if (isInitialLoad) setLoading(true)
+      else setLoadingMore(true)
+
+      try {
+        const params = new URLSearchParams()
+        params.append('limit', '20')
+        if (cursor) params.append('cursor', cursor)
+
+        const response = await fetch(`/api/chats/${chatId}/messages?${params}`)
+        if (!response.ok) throw new Error('Failed to fetch messages')
+
+        const data = await response.json()
+
+        // Filter out duplicates and add new messages to seen set
+        const newMessages = data.messages.filter(msg => !seenMessageIds.current.has(msg.id))
+        newMessages.forEach(msg => seenMessageIds.current.add(msg.id))
+
+        // Sort by timestamp ascending (oldest first)
+        const sortedMessages = newMessages.sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        )
+
+        setMessages(prev => {
+          if (isInitialLoad) {
+            return sortedMessages
+          } else {
+            // Add older messages at the top
+            return [...sortedMessages, ...prev]
+          }
+        })
+
+        messagesCache[chatId] = {
+          messages: sortedMessages,
+          nextCursor: data.nextCursor,
+          hasMore: data.hasMore,
+        }
+
+        setNextCursor(data.nextCursor)
+        setHasMore(data.hasMore)
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error('Failed to fetch messages'))
+      } finally {
+        if (isInitialLoad) setLoading(false)
+        else setLoadingMore(false)
+      }
+    },
+    [chatId]
   )
 
-  // Socket listeners for real-time updates
+  const loadMore = async () => {
+    if (loadingMore || !hasMore || !nextCursor) return
+    await loadMessages(nextCursor)
+  }
+
+  // Handle real-time updates
   useEffect(() => {
-    if (!socket || !chatId) return
+    if (!socket) return
 
     const handleNewMessage = (message: Message) => {
-      if (message.chatId === chatId) {
-        mutate(currentData => {
-          if (!currentData) return { messages: [message] }
-          return { messages: [...currentData.messages, message] }
-        }, false)
-      }
-    }
+      if (seenMessageIds.current.has(message.id)) return
+      seenMessageIds.current.add(message.id)
 
-    const handleMessageUpdate = (updatedMessage: Message) => {
-      if (updatedMessage.chatId === chatId) {
-        mutate(currentData => {
-          if (!currentData) return { messages: [updatedMessage] }
-          return {
-            messages: currentData.messages.map(msg =>
-              msg.id === updatedMessage.id ? updatedMessage : msg
-            ),
-          }
-        }, false)
-      }
-    }
-
-    const handleMessageDelete = (messageId: string) => {
-      mutate(currentData => {
-        if (!currentData) return { messages: [] }
-        return {
-          messages: currentData.messages.filter(msg => msg.id !== messageId),
-        }
-      }, false)
+      setMessages(prev => [...prev, message]) // Add new messages at the end (newest at bottom)
     }
 
     socket.on('new_message', handleNewMessage)
-    socket.on('message_update', handleMessageUpdate)
-    socket.on('message_delete', handleMessageDelete)
-
     return () => {
       socket.off('new_message', handleNewMessage)
-      socket.off('message_update', handleMessageUpdate)
-      socket.off('message_delete', handleMessageDelete)
     }
-  }, [socket, chatId, mutate])
+  }, [socket])
+
+  // Initial load
+  useEffect(() => {
+    loadMessages()
+  }, [chatId, loadMessages])
 
   const sendMessage = async (content: string) => {
     if (!socket) throw new Error('Socket not connected')
 
     return new Promise((resolve, reject) => {
-      socket.emit('send_message', { chatId, content }, (response: any) => {
-        if (response.error) {
-          reject(new Error(response.error))
-        } else {
-          resolve(response.message)
+      socket.emit(
+        'send_message',
+        { chatId, content },
+        (response: { error?: string; message?: Message }) => {
+          if (response.error) {
+            reject(new Error(response.error))
+          } else {
+            resolve(response.message)
+          }
         }
-      })
+      )
     })
   }
 
+  const refetch = async () => {
+    seenMessageIds.current.clear()
+    setMessages([])
+    loadMessages()
+  }
+
   return {
-    messages: data?.messages || [],
-    loading: isLoading,
+    messages,
+    loading,
+    loadingMore,
     error,
+    hasMore,
+    loadMore,
     sendMessage,
-    refetch: () => mutate(),
+    refetch,
   }
 }
