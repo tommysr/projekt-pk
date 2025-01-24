@@ -16,6 +16,18 @@ and various UI components.
 - **Database Integration**: Prisma ORM for database management and migrations.
 - **Testing**: Unit and integration tests using Jest and Vitest.
 
+## Technologies
+
+- **Next.js** (framework for server-rendered React applications)
+- **React** (front-end library for building user interfaces)
+- **TypeScript** (strongly typed language that builds on JavaScript)
+- **Tailwind CSS** (utility-first CSS framework for styling)
+- **Node.js** (JavaScript runtime environment)
+- **Prisma** (ORM for managing database schema and queries)
+- **PostgreSQL** (relational database used in this project)
+- **Docker** (used for containerization in development/production)
+- **Jest** & **Vitest** (testing frameworks)
+
 ## Project Structure
 
 ```text
@@ -126,6 +138,20 @@ npm test
   Room".
 - **Join a Chat Room**: Select an existing chat room from the list.
 - **Send a Message**: Type your message in the input field and press enter.
+
+## Screenshots
+
+**Landing Page**
+![Landing Page](screenshots/landing.png "Landing Page")
+**Login**
+![Login](screenshots/login.png "Login")
+**Register**
+![Register](screenshots/register.png "Register")
+**Chat**
+![Chat](screenshots/chat.png "Chat")
+**Add Chat**
+![Add Chat](screenshots/addChat.png "Add Chat")
+
 
 ## License
 
