@@ -1,18 +1,26 @@
 'use client'
 
-import { useSocket } from '@/hooks/useSocket'
+import { useSocketContext } from '@/components/providers/SocketProvider'
 import { useMessages } from '@/hooks/useMessages'
 import { useAuth } from '@/hooks/useAuth'
 import { useState, useEffect } from 'react'
+import { Loading } from '@/components/ui/loading'
 
 export function ChatContent({ chatId }: { chatId: string }) {
-  const socket = useSocket()
+  const { socket } = useSocketContext()
+
+  if (!chatId) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full">
+        <p className="text-gray-500">Select a chat to start messaging</p>
+      </div>
+    )
+  }
 
   useEffect(() => {
     if (!socket || !chatId) return
     socket.emit('join_room', chatId)
   }, [socket, chatId])
-
 
   const { messages, loading: messagesLoading, sendMessage } = useMessages(chatId)
   const { user, loading: userLoading } = useAuth()
@@ -35,16 +43,11 @@ export function ChatContent({ chatId }: { chatId: string }) {
   }
 
   if (userLoading || messagesLoading) {
-    return <div>Loading...</div>
+    return <Loading message="Loading messages..." />
   }
 
   if (!socket) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <p className="text-gray-500">Connecting to chat...</p>
-        <p className="text-sm text-gray-400">Please wait while we establish a secure connection</p>
-      </div>
-    )
+    return <Loading message="Connecting to chat..." />
   }
 
   return (

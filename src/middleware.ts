@@ -9,14 +9,21 @@ export function middleware(request: NextRequest) {
   console.log('Is authenticated:', isAuthenticated)
 
   // Public routes that don't require authentication
-  const publicPaths = ['/login', '/register']
-  if (publicPaths.includes(pathname)) {
+  const publicPaths = ['/', '/login', '/register']
+  const isPublicPath = publicPaths.includes(pathname)
+
+  if (isAuthenticated) {
+    // If authenticated and trying to access any public path (including root), redirect to /chat
+    if (isPublicPath) {
+      console.log('Authenticated user accessing public path, redirecting to /chat')
+      return NextResponse.redirect(new URL('/chat', request.url))
+    }
     return NextResponse.next()
   }
 
-  // Redirect to login if not authenticated
-  if (!isAuthenticated) {
-    console.log('Redirecting to login')
+  // If not authenticated and trying to access protected paths, redirect to login
+  if (!isPublicPath) {
+    console.log('Unauthenticated user accessing protected path, redirecting to login')
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
@@ -24,5 +31,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/chat/:path*', '/profile/:path*'],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 }
